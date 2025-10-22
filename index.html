@@ -12,25 +12,35 @@
 <body>
   <header class="bar">
     <h1>動画 × 指標グラフ 同期ビューア</h1>
-    <div class="right small">GitHub Pages対応・ローカル処理 / CSV: frame_features</div>
+    <div class="right small">GitHub Pages対応・ローカル処理</div>
   </header>
 
   <main class="container">
+
+    <!-- ① ファイル選択（上段） -->
     <section class="panel">
       <h2>① ファイルを選択</h2>
       <div class="inputs">
         <label class="file">
-          <span>動画ファイル（mp4等）</span>
+          <span>動画ファイル（mp4推奨）</span>
           <input id="videoInput" type="file" accept="video/*" />
         </label>
         <label class="file">
           <span>CSV（frame_features*.csv）</span>
           <input id="csvInput" type="file" accept=".csv,text/csv" />
         </label>
+        <button id="compatBtn" title="このブラウザの動画互換性を確認">互換性チェック</button>
       </div>
+      <div id="meta" class="small"></div>
+    </section>
 
-      <div class="grid">
-        <div>
+    <!-- ② ビュー（横並び：左=動画 / 右=グラフ） -->
+    <section class="panel">
+      <h2>② ビュー（動画とグラフを同期）</h2>
+
+      <div class="two">
+        <!-- 左ペイン：動画＆タイム操作 -->
+        <div class="pane">
           <video id="player" controls playsinline></video>
           <div class="row">
             <label>再生位置</label>
@@ -38,7 +48,7 @@
             <div id="timeLabel" class="mono">0.00s</div>
           </div>
           <div class="row">
-            <label>再生速度</label>
+            <label>速度</label>
             <select id="rateSel">
               <option>0.25</option><option>0.5</option><option selected>1</option>
               <option>1.5</option><option>2</option>
@@ -47,35 +57,32 @@
             <button id="fwd1f"  title="→ 1フレーム">1f &rarr;</button>
             <label class="tight">FPS</label>
             <input id="fpsInput" type="number" step="0.01" value="30" class="short" />
-            <label class="tight">オフセット (s)</label>
+            <label class="tight">オフセット(s)</label>
             <input id="offsetInput" type="number" step="0.01" value="0" class="short" />
           </div>
           <div class="row small">
-            <span>※ オフセット = <b>動画の時間</b> − <b>CSVのtime_sec</b>。ズレる場合に微調整。</span>
+            <span>※ オフセット = <b>動画の時間</b> − <b>CSVのtime_sec</b></span>
           </div>
         </div>
 
-        <div>
+        <!-- 右ペイン：グラフ -->
+        <div class="pane">
+          <div id="plot"></div>
           <div class="row">
             <label>表示する列</label>
-            <select id="colSel" multiple size="10" class="wide"></select>
+            <select id="colSel" multiple size="8" class="wide"></select>
           </div>
           <div class="row">
-            <label>スムージング (秒)</label>
+            <label>スムージング(秒)</label>
             <input id="smoothInput" type="number" step="0.05" value="0.20" class="short" />
             <label class="tight">正規化</label>
             <input id="normChk" type="checkbox" checked />
             <button id="fitBtn">表示範囲に合わせる</button>
           </div>
-          <div id="meta" class="small"></div>
         </div>
       </div>
     </section>
 
-    <section class="panel">
-      <h2>② グラフ（動画と同期）</h2>
-      <div id="plot"></div>
-    </section>
   </main>
 
   <footer class="foot small">
