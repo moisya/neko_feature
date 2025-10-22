@@ -17,15 +17,15 @@
 
   <main class="container">
 
-    <!-- ① 上段：左=ファイル選択 / 右=列・表示設定 -->
+    <!-- 上段：左=ファイル選択（縦並び） / 右=列・表示設定（ワイド） -->
     <section class="panel">
       <h2>① ファイル & 表示設定</h2>
       <div class="topgrid">
-        <!-- 左：ファイル選択 -->
+        <!-- 左：ファイル選択（縦） -->
         <div class="pane">
-          <div class="inputs">
+          <div class="inputs vertical">
             <label class="file">
-              <span>動画ファイル（mp4推奨）</span>
+              <span>動画ファイル（mp4/H.264推奨）</span>
               <input id="videoInput" type="file" accept="video/*" />
             </label>
             <label class="file">
@@ -37,11 +37,10 @@
           <div id="meta" class="small" aria-live="polite"></div>
         </div>
 
-        <!-- 右：列・表示設定（日本語表示＋グループ） -->
+        <!-- 右：列・表示設定（ワイド、ホバー説明） -->
         <div class="pane">
-          <div class="row">
-            <label class="tight">列の検索</label>
-            <input id="searchCols" type="search" placeholder="例：耳 / しっぽ / 口 / pfgi / tui..." class="grow" />
+          <div class="row wrap">
+            <span class="muted">プリセット:</span>
             <button id="presetEars"  class="ghost">耳</button>
             <button id="presetTail"  class="ghost">しっぽ</button>
             <button id="presetMouth" class="ghost">口</button>
@@ -51,9 +50,8 @@
             <button id="presetClear" class="ghost">クリア</button>
           </div>
 
-          <div id="columnPanel" class="colpanel" aria-label="表示する列（日本語名）">
-            <!-- JSでグループごとにチェックボックス生成 -->
-          </div>
+          <!-- グループ別チェックボックス（JSで生成） -->
+          <div id="columnPanel" class="colpanel" aria-label="表示する列（日本語名＋ホバー説明）"></div>
 
           <div class="row">
             <label>スムージング(秒)</label>
@@ -66,7 +64,7 @@
       </div>
     </section>
 
-    <!-- ② 下段：横並びビュー（左=動画 / 右=グラフ） -->
+    <!-- 下段：左=動画 / 右=グラフ -->
     <section class="panel">
       <h2>② ビュー（動画とグラフを同期）</h2>
       <div class="two">
