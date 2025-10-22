@@ -17,29 +17,48 @@
 
   <main class="container">
 
-    <!-- ① ファイル選択（上段） -->
+    <!-- ① 上段：左=ファイル選択 / 右=列・表示設定 -->
     <section class="panel">
-      <h2>① ファイルを選択</h2>
-      <div class="inputs">
-        <label class="file">
-          <span>動画ファイル（mp4推奨）</span>
-          <input id="videoInput" type="file" accept="video/*" />
-        </label>
-        <label class="file">
-          <span>CSV（frame_features*.csv）</span>
-          <input id="csvInput" type="file" accept=".csv,text/csv" />
-        </label>
-        <button id="compatBtn" title="このブラウザの動画互換性を確認">互換性チェック</button>
+      <h2>① ファイル & 表示設定</h2>
+      <div class="topgrid">
+        <!-- 左：ファイル選択 -->
+        <div class="pane">
+          <div class="inputs">
+            <label class="file">
+              <span>動画ファイル（mp4推奨）</span>
+              <input id="videoInput" type="file" accept="video/*" />
+            </label>
+            <label class="file">
+              <span>CSV（frame_features*.csv）</span>
+              <input id="csvInput" type="file" accept=".csv,text/csv" />
+            </label>
+            <button id="compatBtn" title="このブラウザの動画互換性を確認">互換性チェック</button>
+          </div>
+          <div id="meta" class="small" aria-live="polite"></div>
+        </div>
+
+        <!-- 右：列・表示設定（上段に移動） -->
+        <div class="pane">
+          <div class="row">
+            <label>表示する列</label>
+            <select id="colSel" multiple size="12" class="wide" aria-label="表示する列（複数選択可）"></select>
+          </div>
+          <div class="row">
+            <label>スムージング(秒)</label>
+            <input id="smoothInput" type="number" step="0.05" value="0.20" class="short" />
+            <label class="tight">正規化</label>
+            <input id="normChk" type="checkbox" checked />
+            <button id="fitBtn">表示範囲に合わせる</button>
+          </div>
+        </div>
       </div>
-      <div id="meta" class="small"></div>
     </section>
 
-    <!-- ② ビュー（横並び：左=動画 / 右=グラフ） -->
+    <!-- ② 下段：横並びビュー（左=動画 / 右=グラフ） -->
     <section class="panel">
       <h2>② ビュー（動画とグラフを同期）</h2>
-
       <div class="two">
-        <!-- 左ペイン：動画＆タイム操作 -->
+        <!-- 左：動画＆タイム操作 -->
         <div class="pane">
           <video id="player" controls playsinline></video>
           <div class="row">
@@ -65,20 +84,9 @@
           </div>
         </div>
 
-        <!-- 右ペイン：グラフ -->
+        <!-- 右：グラフ -->
         <div class="pane">
           <div id="plot"></div>
-          <div class="row">
-            <label>表示する列</label>
-            <select id="colSel" multiple size="8" class="wide"></select>
-          </div>
-          <div class="row">
-            <label>スムージング(秒)</label>
-            <input id="smoothInput" type="number" step="0.05" value="0.20" class="short" />
-            <label class="tight">正規化</label>
-            <input id="normChk" type="checkbox" checked />
-            <button id="fitBtn">表示範囲に合わせる</button>
-          </div>
         </div>
       </div>
     </section>
