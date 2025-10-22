@@ -4,12 +4,18 @@
 *{box-sizing:border-box}
 html,body{height:100%}
 body{margin:0;font-family:system-ui,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,'Noto Sans JP','Hiragino Kaku Gothic ProN','Yu Gothic',Meiryo,sans-serif;color:var(--ink);background:var(--bg)}
+
 .bar{display:flex;justify-content:space-between;align-items:center;padding:10px 16px;border-bottom:1px solid var(--line);background:#fff}
 .right{opacity:.85}
 .small{font-size:12px}
 .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,'Liberation Mono','Courier New',monospace}
+
+/* ★ ご希望どおり広幅に */
 .container{max-width:1800px;margin:0 auto;padding:16px;display:grid;gap:16px}
 .panel{background:var(--card);border:1px solid var(--ink);box-shadow:8px 8px 0 rgba(0,0,0,.08);padding:16px}
+
+/* 上段：左=ファイル / 右=列・表示 */
+.topgrid{display:grid;grid-template-columns:1.1fr .9fr;gap:16px;align-items:start}
 .inputs{display:flex;gap:12px;flex-wrap:wrap;align-items:end}
 .file{display:grid;gap:6px}
 label{font-weight:700}
@@ -17,6 +23,7 @@ label{font-weight:700}
 .short{width:88px}
 .wide{min-width:260px}
 
+/* 下段：横並びビュー */
 .two{display:grid;grid-template-columns:1.1fr 1fr;gap:16px;align-items:start}
 .pane{display:grid;gap:8px}
 #player{width:100%;height:66vh;background:#000;object-fit:contain}
@@ -29,6 +36,10 @@ input[type="range"]{flex:1}
 
 .foot{text-align:center;color:var(--muted);padding:10px 0}
 
+/* レスポンシブ：狭い画面では縦積み */
+@media (max-width: 1200px){
+  .topgrid{grid-template-columns:1fr}
+}
 @media (max-width: 980px){
   .two{grid-template-columns:1fr}
   #player,#plot{height:48vh}
