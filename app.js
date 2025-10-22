@@ -8,6 +8,7 @@ let dtMedian = 1/30;  // seconds
 let plotReady = false;
 let labelByKey = {};  // 日本語名
 let groupByKey = {};  // グループ
+let descByKey  = {};  // 説明（ツールチップ）
 
 // --- Helpers ---
 const $ = (id) => document.getElementById(id);
@@ -35,7 +36,6 @@ const computeDtMedian = (t) => {
   return diffs.length? median(diffs) : 1/30;
 };
 const human = (s)=> `${s.toFixed(2)}s`;
-
 function listNumericColumns(rows){
   const hdr = Object.keys(rows[0]||{});
   const numeric = [];
@@ -62,57 +62,75 @@ function showStatus(msg, isErr=false){
   meta.style.color = isErr ? '#b91c1c' : '';
 }
 
-// --- 日本語ラベル/グループ付け ---
+// --- 日本語ラベル/グループ/説明 ---
 const COLUMN_PATTERNS = [
   // 耳
-  {re: /^efi_depth(?:$|_)/, group:'耳', label:'耳の前向き度（深度）'},
-  {re: /^efi_fused(?:$|_)/, group:'耳', label:'耳の前向き度（融合）'},
-  {re: /^efi(?:$|_)/,       group:'耳', label:'耳の前向き度（EFI）'},
-  {re: /^esr_depth_corr/,   group:'耳', label:'耳の広がり（深度補正）'},
-  {re: /^esr(?:$|_)/,       group:'耳', label:'耳の広がり（ESR）'},
+  {re:/^efi_depth(?:$|_)/, group:'耳', label:'耳の前向き度（深度）',
+   desc:'耳根→耳先の向きを3Dで評価。頭の正面（nose→neck_base）と揃うほど大。奥行きも反映。'},
+  {re:/^efi_fused(?:$|_)/, group:'耳', label:'耳の前向き度（融合）',
+   desc:'2DのEFIと深度版EFIを信頼度で重み付け合成。ノイズに強い指標。'},
+  {re:/^efi(?:$|_)/,       group:'耳', label:'耳の前向き度（EFI）',
+   desc:'耳根→耳先ベクトルと頭の前向きベクトルの内積（0–1）。前へ向くほど大きい。'},
+  {re:/^esr_depth_corr/,   group:'耳', label:'耳の広がり（深度補正）',
+   desc:'頭のヨー（左右向き）影響を補正した耳の開き。撮影角の差に頑健。'},
+  {re:/^esr(?:$|_)/,       group:'耳', label:'耳の広がり（ESR）',
+   desc:'左右の耳先の開き具合（角度/横方向成分）。広がるほど大。'},
 
   // しっぽ
-  {re: /^tui_perp(?:$|_)/,      group:'しっぽ', label:'尻尾の上げ度（直交）'},
-  {re: /^tui_curvature(?:$|_)/, group:'しっぽ', label:'尻尾の曲率'},
-  {re: /^tui(?:$|_)/,           group:'しっぽ', label:'尻尾の上げ度（総合）'},
-  {re: /^tfe_fused(?:$|_)/,     group:'しっぽ', label:'尻尾の振り（融合）'},
-  {re: /^tfe_z_rate(?:$|_)/,    group:'しっぽ', label:'尻尾の振り頻度（深度/レート）'},
-  {re: /^tfe_z(?:$|_)/,         group:'しっぽ', label:'尻尾の振り（前後/深度）'},
-  {re: /^tfe_peak_rate(?:$|_)/, group:'しっぽ', label:'尻尾の振り頻度（2D）'},
+  {re:/^tui_perp(?:$|_)/,      group:'しっぽ', label:'尻尾の上げ度（直交）',
+   desc:'体軸に直交する純粋な“持ち上げ”成分。背側へどれだけ上がっているかの純度指標。'},
+  {re:/^tui_curvature(?:$|_)/, group:'しっぽ', label:'尻尾の曲率',
+   desc:'尻尾ベクトルの方向変化の速さ。よく曲がる/ゆらぐほど大。'},
+  {re:/^tui(?:$|_)/,           group:'しっぽ', label:'尻尾の上げ度（総合）',
+   desc:'尻尾ベクトルが体の“上”方向へ向く度合い（0–1）。上げているほど大。'},
+  {re:/^tfe_fused(?:$|_)/,     group:'しっぽ', label:'尻尾の振り（融合）',
+   desc:'2Dの横振りと深度の前後振りのピーク列を統合。誤検出に強い。'},
+  {re:/^tfe_z_rate(?:$|_)/,    group:'しっぽ', label:'尻尾の振り頻度（深度/レート）',
+   desc:'奥行き(Z)方向の振りから計算したピーク回数/秒。'},
+  {re:/^tfe_z(?:$|_)/,         group:'しっぽ', label:'尻尾の振り（前後/深度）',
+   desc:'奥行き(Z)方向の振りの振幅/波形に基づく指標。'},
+  {re:/^tfe_peak_rate(?:$|_)/, group:'しっぽ', label:'尻尾の振り頻度（2D）',
+   desc:'横振りの高速成分から検出したピーク回数/秒。'},
 
   // 口
-  {re: /^pfgi_continuous_max_sec/,  group:'口', label:'口の開き：連続超過最大秒数'},
-  {re: /^pfgi_continuous_mean_sec/, group:'口', label:'口の開き：連続超過平均秒数'},
-  {re: /^pfgi(?:$|_)/,              group:'口', label:'口の開き（PFGI）'},
+  {re:/^pfgi_continuous_max_sec/,  group:'口', label:'口の開き：連続超過最大秒数',
+   desc:'pfgiがp90閾値を連続で超えた最長の持続時間。'},
+  {re:/^pfgi_continuous_mean_sec/, group:'口', label:'口の開き：連続超過平均秒数',
+   desc:'pfgiがp90を超えていた区間の平均持続時間。'},
+  {re:/^pfgi(?:$|_)/,              group:'口', label:'口の開き（PFGI）',
+   desc:'上下顎の距離を頭サイズで正規化。遊び顔の強さの目安。'},
 
   // 前脚
-  {re: /^pai_extension(?:$|_)/, group:'前脚', label:'前脚の伸展度'},
-  {re: /^pai_peak_rate(?:$|_)/, group:'前脚', label:'前脚アクション頻度'},
+  {re:/^pai_extension(?:$|_)/, group:'前脚', label:'前脚の伸展度',
+   desc:'前脚の先(paw)が頭方向へどれだけ伸びたか（体長で正規化、左右平均）。'},
+  {re:/^pai_peak_rate(?:$|_)/, group:'前脚', label:'前脚アクション頻度',
+   desc:'前脚の速度波形のピーク回数/秒。小刻みな手の動き。'},
 
   // 全身
-  {re: /^com_velocity(?:$|_)/,  group:'全身', label:'重心速度'},
-  {re: /^burst_peak_rate(?:$|_)/, group:'全身', label:'バースト頻度'},
-  {re: /^turn_sharpness(?:$|_)/, group:'全身', label:'方向転換の鋭さ'},
+  {re:/^com_velocity(?:$|_)/,  group:'全身', label:'重心速度',
+   desc:'体中心軌跡の移動速度。全体の動きの速さ。'},
+  {re:/^burst_peak_rate(?:$|_)/, group:'全身', label:'バースト頻度',
+   desc:'重心速度の微分（加速度）ピーク回数/秒。瞬発ダッシュの頻度。'},
+  {re:/^turn_sharpness(?:$|_)/, group:'全身', label:'方向転換の鋭さ',
+   desc:'重心軌跡の向きの変化率（角速度）の上位値。急なターンほど大。'},
 ];
 
+// key→ラベル/グループ/説明
 function classifyKey(key){
   for (const p of COLUMN_PATTERNS){
-    if (p.re.test(key)) return {group:p.group, label:p.label};
+    if (p.re.test(key)) return {group:p.group, label:p.label, desc:p.desc};
   }
-  return {group:'その他', label:key};
+  return {group:'その他', label:key, desc:'この列はその他に分類されています。'};
 }
 
 function buildCatalog(keys){
-  labelByKey = {};
-  groupByKey = {};
+  labelByKey = {}; groupByKey = {}; descByKey = {};
   const groups = {'耳':[], 'しっぽ':[], '口':[], '前脚':[], '全身':[], 'その他':[]};
   for (const k of keys){
-    const {group,label} = classifyKey(k);
-    labelByKey[k] = label;
-    groupByKey[k] = group;
-    groups[group].push({key:k, label});
+    const {group,label,desc} = classifyKey(k);
+    labelByKey[k] = label; groupByKey[k] = group; descByKey[k] = desc;
+    groups[group].push({key:k, label, desc});
   }
-  // 並びを分かりやすく（ラベル名で）
   for (const g of Object.keys(groups)){
     groups[g].sort((a,b)=> a.label.localeCompare(b.label,'ja'));
   }
@@ -121,9 +139,9 @@ function buildCatalog(keys){
 
 function renderColumnPanel(groups){
   const el = $('columnPanel');
-  const groupOrder = ['耳','しっぽ','口','前脚','全身','その他'];
+  const order = ['耳','しっぽ','口','前脚','全身','その他'];
   let html = '';
-  for (const g of groupOrder){
+  for (const g of order){
     const items = groups[g]||[];
     const count = items.length;
     html += `<div class="group" data-group="${g}">
@@ -135,9 +153,10 @@ function renderColumnPanel(groups){
     for (const it of items){
       const id = `col__${it.key.replace(/[^a-zA-Z0-9_]/g,'_')}`;
       const checked = selectedKeys.includes(it.key) ? 'checked' : '';
+      const tip = (it.desc || it.label).replace(/"/g,'&quot;');
       html += `<div class="item" data-key="${it.key}">
         <input type="checkbox" class="colchk" id="${id}" value="${it.key}" ${checked} />
-        <label for="${id}">${it.label}</label>
+        <label for="${id}" data-tip="${tip}">${it.label}</label>
         <span class="badge" title="元の列名">${it.key}</span>
       </div>`;
     }
@@ -162,7 +181,6 @@ function drawPlot(){
     if (norm) y = normalize01(y);
     if (win>1) y = movingAverage(y, win);
 
-    // 日本語名＋元キーを凡例に
     const name = (labelByKey[key] || key) + ` (${key})`;
     traces.push({
       type:'scatter', mode:'lines', name,
@@ -273,14 +291,14 @@ $('csvInput').addEventListener('change', (e)=>{
       }
       timeArr = t;
 
-      // 候補列（数値）
+      // 数値列候補
       const keys = listNumericColumns(csvRows);
       numCols = keys.map(k=>({key:k, values: csvRows.map(r => Number(r[k]))}));
 
-      // 既定の選択（見やすい最小セット）
+      // 既定の選択
       selectedKeys = ['pfgi','tui','tfe_peak_rate','com_velocity'].filter(k => keys.includes(k));
 
-      // 日本語ラベル＆グループ
+      // カタログ生成（日本語ラベル＋説明＋グループ）
       const groups = buildCatalog(keys);
       renderColumnPanel(groups);
 
@@ -313,7 +331,7 @@ $('columnPanel').addEventListener('click', (e)=>{
   const act = e.target.dataset.act;
   if (!act) return;
   const g = e.target.dataset.group;
-  const groupBox = Array.from($(`columnPanel`).querySelectorAll(`.group[data-group="${g}"] .colchk`));
+  const groupBox = Array.from($('columnPanel').querySelectorAll(`.group[data-group="${g}"] .colchk`));
   if (act==='gsel'){
     for (const cb of groupBox){ if (!cb.checked){ cb.checked = true; if (!selectedKeys.includes(cb.value)) selectedKeys.push(cb.value); } }
   } else if (act==='gclr'){
@@ -321,38 +339,6 @@ $('columnPanel').addEventListener('click', (e)=>{
   }
   drawPlot();
 });
-
-// 検索フィルタ
-$('searchCols').addEventListener('input', (e)=>{
-  const q = e.target.value.trim().toLowerCase();
-  const items = Array.from(document.querySelectorAll('#columnPanel .item'));
-  for (const it of items){
-    const key = it.dataset.key.toLowerCase();
-    const jp  = (labelByKey[it.dataset.key]||'').toLowerCase();
-    const show = !q || key.includes(q) || jp.includes(q);
-    it.style.display = show ? '' : 'none';
-  }
-});
-
-// プリセット
-function presetSelect(pred){
-  const boxes = Array.from(document.querySelectorAll('#columnPanel .colchk'));
-  selectedKeys = [];
-  for (const cb of boxes){
-    const key = cb.value;
-    const ok = pred(key);
-    cb.checked = ok;
-    if (ok) selectedKeys.push(key);
-  }
-  drawPlot();
-}
-$('presetEars').addEventListener('click',  ()=>presetSelect(k=>groupByKey[k]==='耳'));
-$('presetTail').addEventListener('click',  ()=>presetSelect(k=>groupByKey[k]==='しっぽ'));
-$('presetMouth').addEventListener('click', ()=>presetSelect(k=>groupByKey[k]==='口'));
-$('presetPaws').addEventListener('click',  ()=>presetSelect(k=>groupByKey[k]==='前脚'));
-$('presetBody').addEventListener('click',  ()=>presetSelect(k=>groupByKey[k]==='全身'));
-$('presetAll').addEventListener('click',   ()=>presetSelect(_=>true));
-$('presetClear').addEventListener('click', ()=>presetSelect(_=>false));
 
 // スライダ→動画
 $('timeSlider').addEventListener('input', setFromSlider);
