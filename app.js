@@ -8,14 +8,33 @@ let dtMedian = 1/30;  // seconds
 let plotReady = false;
 let labelByKey = {};  // 日本語名
 let groupByKey = {};  // グループ
-let descByKey  = {};  // 説明（ツールチップ：必ず「大きいほど◯◯」を含む）
+let descByKey  = {};  // 説明（ツールチップ）
 
 // --- Helpers ---
 const $ = (id) => document.getElementById(id);
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
-const median = (arr) => { const a = arr.slice().sort((x,y)=>x-y); const m = Math.floor(a.length/2); return a.length ? (a.length%2 ? a[m] : 0.5*(a[m-1]+a[m])) : 0; };
-const movingAverage = (y, win) => { if (win<=1) return y.slice(); const out=new Array(y.length).fill(NaN); let q=[]; for (let i=0;i<y.length;i++){ const v=y[i]; q.push(Number.isFinite(v)?v:NaN); if(q.length>win) q.shift(); const valid=q.filter(Number.isFinite); out[i]=valid.length? valid.reduce((a,b)=>a+b,0)/valid.length : NaN; } return out; };
-const computeDtMedian = (t) => { const diffs=[]; for (let i=1;i<t.length;i++){ const d=t[i]-t[i-1]; if (isFinite(d)&&d>0) diffs.push(d); } return diffs.length? median(diffs) : 1/30; };
+const median = (arr) => {
+  const a = arr.slice().sort((x,y)=>x-y); const m = Math.floor(a.length/2);
+  return a.length ? (a.length%2 ? a[m] : 0.5*(a[m-1]+a[m])) : 0;
+};
+const movingAverage = (y, win) => {
+  if (win<=1) return y.slice();
+  const out = new Array(y.length).fill(NaN);
+  let q=[];
+  for (let i=0;i<y.length;i++){
+    const v = y[i];
+    q.push(Number.isFinite(v)?v:NaN);
+    if (q.length>win) q.shift();
+    const valid = q.filter(Number.isFinite);
+    out[i] = valid.length ? valid.reduce((a,b)=>a+b,0)/valid.length : NaN;
+  }
+  return out;
+};
+const computeDtMedian = (t) => {
+  const diffs=[];
+  for (let i=1;i<t.length;i++){ const d=t[i]-t[i-1]; if (isFinite(d)&&d>0) diffs.push(d); }
+  return diffs.length? median(diffs) : 1/30;
+};
 const human = (s)=> `${s.toFixed(2)}s`;
 function listNumericColumns(rows){
   const hdr = Object.keys(rows[0]||{});
@@ -43,79 +62,65 @@ function showStatus(msg, isErr=false){
   meta.style.color = isErr ? '#b91c1c' : '';
 }
 
-// --- 日本語ラベル/グループ/説明（必ず方向性を記述） ---
+// --- 日本語ラベル/グループ/説明 ---
 const COLUMN_PATTERNS = [
   // 耳
   {re:/^efi_depth(?:$|_)/, group:'耳', label:'耳の前向き度（深度）',
-   desc:'耳根→耳先の向きを3Dで評価し、頭の正面と揃うほど大。大きいほど「耳が前を向いている」。'},
+   desc:'耳根→耳先の向きを3Dで評価。頭の正面（nose→neck_base）と揃うほど大。奥行きも反映。'},
   {re:/^efi_fused(?:$|_)/, group:'耳', label:'耳の前向き度（融合）',
-   desc:'2Dと深度のEFIを信頼度で合成。大きいほど「耳が前を向いている」（ノイズに強い）。'},
+   desc:'2DのEFIと深度版EFIを信頼度で重み付け合成。ノイズに強い指標。'},
   {re:/^efi(?:$|_)/,       group:'耳', label:'耳の前向き度（EFI）',
-   desc:'耳根→耳先と頭の前向きの内積（0–1）。大きいほど「耳が前を向いている」。'},
+   desc:'耳根→耳先ベクトルと頭の前向きベクトルの内積（0–1）。前へ向くほど大きい。'},
   {re:/^esr_depth_corr/,   group:'耳', label:'耳の広がり（深度補正）',
-   desc:'撮影角の影響を補正した左右の開き。大きいほど「耳が左右に開いている」。'},
+   desc:'頭のヨー（左右向き）影響を補正した耳の開き。撮影角の差に頑健。'},
   {re:/^esr(?:$|_)/,       group:'耳', label:'耳の広がり（ESR）',
-   desc:'左右の耳先の開き具合。大きいほど「耳が左右に開いている」。'},
+   desc:'左右の耳先の開き具合（角度/横方向成分）。広がるほど大。'},
 
   // しっぽ
   {re:/^tui_perp(?:$|_)/,      group:'しっぽ', label:'尻尾の上げ度（直交）',
-   desc:'体軸に直交する純粋な持ち上げ。大きいほど「尻尾をより真上に持ち上げている」。'},
+   desc:'体軸に直交する純粋な“持ち上げ”成分。背側へどれだけ上がっているかの純度指標。'},
   {re:/^tui_curvature(?:$|_)/, group:'しっぽ', label:'尻尾の曲率',
-   desc:'方向変化の速さ。大きいほど「尻尾がよく曲がり・ゆらぐ」。'},
+   desc:'尻尾ベクトルの方向変化の速さ。よく曲がる/ゆらぐほど大。'},
   {re:/^tui(?:$|_)/,           group:'しっぽ', label:'尻尾の上げ度（総合）',
-   desc:'背側（上）方向成分。大きいほど「尻尾が高く上がっている」。'},
+   desc:'尻尾ベクトルが体の“上”方向へ向く度合い（0–1）。上げているほど大。'},
   {re:/^tfe_fused(?:$|_)/,     group:'しっぽ', label:'尻尾の振り（融合）',
-   desc:'2D横振りと深度Z振りの統合。大きいほど「尻尾の速い振りが強い/多い」。'},
+   desc:'2Dの横振りと深度の前後振りのピーク列を統合。誤検出に強い。'},
   {re:/^tfe_z_rate(?:$|_)/,    group:'しっぽ', label:'尻尾の振り頻度（深度/レート）',
-   desc:'Z方向ピーク回数/秒。大きいほど「奥行き方向の速い振りが多い」。'},
+   desc:'奥行き(Z)方向の振りから計算したピーク回数/秒。'},
   {re:/^tfe_z(?:$|_)/,         group:'しっぽ', label:'尻尾の振り（前後/深度）',
-   desc:'Z方向の振幅/波形。大きいほど「前後方向の振りが強い」。'},
+   desc:'奥行き(Z)方向の振りの振幅/波形に基づく指標。'},
   {re:/^tfe_peak_rate(?:$|_)/, group:'しっぽ', label:'尻尾の振り頻度（2D）',
-   desc:'横振りのピーク回数/秒。大きいほど「尻尾を速く頻繁に振っている」。'},
+   desc:'横振りの高速成分から検出したピーク回数/秒。'},
 
   // 口
   {re:/^pfgi_continuous_max_sec/,  group:'口', label:'口の開き：連続超過最大秒数',
-   desc:'高いpfgiが続いた最長時間。大きいほど「口を大きく開いた状態が長く続いた」。'},
+   desc:'pfgiがp90閾値を連続で超えた最長の持続時間。'},
   {re:/^pfgi_continuous_mean_sec/, group:'口', label:'口の開き：連続超過平均秒数',
-   desc:'高いpfgi区間の平均継続時間。大きいほど「長めの開口が多い」。'},
+   desc:'pfgiがp90を超えていた区間の平均持続時間。'},
   {re:/^pfgi(?:$|_)/,              group:'口', label:'口の開き（PFGI）',
-   desc:'上下顎距離の正規化。大きいほど「口をより大きく開いている」。'},
+   desc:'上下顎の距離を頭サイズで正規化。遊び顔の強さの目安。'},
 
   // 前脚
   {re:/^pai_extension(?:$|_)/, group:'前脚', label:'前脚の伸展度',
-   desc:'pawの前方投影（体長正規化）。大きいほど「前脚を前に大きく伸ばしている」。'},
+   desc:'前脚の先(paw)が頭方向へどれだけ伸びたか（体長で正規化、左右平均）。'},
   {re:/^pai_peak_rate(?:$|_)/, group:'前脚', label:'前脚アクション頻度',
-   desc:'前脚速度のピーク回数/秒。大きいほど「小刻みな手の動きが多い」。'},
+   desc:'前脚の速度波形のピーク回数/秒。小刻みな手の動き。'},
 
   // 全身
   {re:/^com_velocity(?:$|_)/,  group:'全身', label:'重心速度',
-   desc:'体中心の移動速度。大きいほど「移動が速い」。'},
+   desc:'体中心軌跡の移動速度。全体の動きの速さ。'},
   {re:/^burst_peak_rate(?:$|_)/, group:'全身', label:'バースト頻度',
-   desc:'加速度ピーク回数/秒。大きいほど「瞬発的なダッシュが多い」。'},
+   desc:'重心速度の微分（加速度）ピーク回数/秒。瞬発ダッシュの頻度。'},
   {re:/^turn_sharpness(?:$|_)/, group:'全身', label:'方向転換の鋭さ',
-   desc:'向きの変化率の強さ。大きいほど「急なターンが多い/鋭い」。'},
+   desc:'重心軌跡の向きの変化率（角速度）の上位値。急なターンほど大。'},
 ];
-
-// フォールバック（その他）用の方向性メモを生成
-function fallbackDirectionHint(key){
-  if (/rate|freq|count/i.test(key)) return '大きいほど「頻度/回数が多い」。';
-  if (/velocity|speed/i.test(key))  return '大きいほど「速い」。';
-  if (/curv|bend/i.test(key))       return '大きいほど「曲がりが強い」。';
-  if (/exten|length|dist/i.test(key)) return '大きいほど「距離/伸びが大きい」。';
-  if (/angle|yaw|pitch|roll/i.test(key)) return '大きいほど「角度が大きい」。';
-  return '大きいほど「量（強さ/頻度/速さなど）が大きい」。';
-}
 
 // key→ラベル/グループ/説明
 function classifyKey(key){
   for (const p of COLUMN_PATTERNS){
     if (p.re.test(key)) return {group:p.group, label:p.label, desc:p.desc};
   }
-  return {
-    group:'その他',
-    label:key,
-    desc:`この列はその他に分類。${fallbackDirectionHint(key)}`
-  };
+  return {group:'その他', label:key, desc:'この列はその他に分類されています。'};
 }
 
 function buildCatalog(keys){
@@ -198,13 +203,18 @@ function drawPlot(){
   const config = {responsive:true, displaylogo:false};
   Plotly.newPlot('plot', traces, layout, config).then(()=>{ plotReady=true; });
 }
-function updateCursor(t){ if (!plotReady) return; Plotly.relayout('plot', {'shapes[0].x0':t, 'shapes[0].x1':t}); }
+function updateCursor(t){
+  if (!plotReady) return;
+  Plotly.relayout('plot', {'shapes[0].x0':t, 'shapes[0].x1':t});
+}
 function fitView(){
   if (!plotReady) return;
   const tMin = timeArr[0] ?? 0;
   const tMax = timeArr[timeArr.length-1] ?? 1;
   Plotly.relayout('plot', {'xaxis.autorange':false, 'xaxis.range':[tMin, tMax]});
 }
+
+// クリックで動画ジャンプ
 document.getElementById('plot').addEventListener('plotly_click', (ev)=>{
   if (!video) return;
   const x = ev.points?.[0]?.x;
@@ -214,9 +224,23 @@ document.getElementById('plot').addEventListener('plotly_click', (ev)=>{
 });
 
 // --- Video / Slider sync ---
-function getSyncTime(){ const offset=parseFloat($('offsetInput').value)||0; const tVid=video?video.currentTime:0; return clamp(tVid - offset, 0, Number.MAX_SAFE_INTEGER); }
-function setFromSlider(){ if (!video) return; const offset=parseFloat($('offsetInput').value)||0; const tCsv=parseFloat($('timeSlider').value)||0; video.currentTime=clamp(tCsv + offset, 0, video.duration||tCsv+offset); }
-function onVideoTimeUpdate(){ const tCsv=getSyncTime(); $('timeSlider').value=tCsv; $('timeLabel').textContent=human(tCsv); updateCursor(tCsv); }
+function getSyncTime(){
+  const offset = parseFloat($('offsetInput').value)||0;
+  const tVid = video ? video.currentTime : 0;
+  return clamp(tVid - offset, 0, Number.MAX_SAFE_INTEGER);
+}
+function setFromSlider(){
+  if (!video) return;
+  const offset = parseFloat($('offsetInput').value)||0;
+  const tCsv = parseFloat($('timeSlider').value)||0;
+  video.currentTime = clamp(tCsv + offset, 0, video.duration||tCsv+offset);
+}
+function onVideoTimeUpdate(){
+  const tCsv = getSyncTime();
+  $('timeSlider').value = tCsv;
+  $('timeLabel').textContent = human(tCsv);
+  updateCursor(tCsv);
+}
 
 // --- File loaders ---
 $('videoInput').addEventListener('change', (e)=>{
@@ -290,7 +314,7 @@ $('csvInput').addEventListener('change', (e)=>{
   });
 });
 
-// --- 列UIの操作 ---
+// --- 列UIの操作（イベント委譲） ---
 $('columnPanel').addEventListener('change', (e)=>{
   if (e.target.classList.contains('colchk')){
     const key = e.target.value;
